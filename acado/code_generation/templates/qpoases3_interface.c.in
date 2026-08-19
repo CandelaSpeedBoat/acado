@@ -18,7 +18,10 @@ int @MODULE_NAME@_@PREFIX@solve( void )
 {
 
 	returnValue retVal;
-	@SOLVER_NAME@ qp;
+	/* The solver object is kept in static storage: it is several kilobytes large
+	 * and would otherwise be a stack frame of the calling task. The constructor
+	 * call below fully re-initialises it on every call. */
+	myStatic @SOLVER_NAME@ qp;
 	Options options;
 
 	@MODULE_NAME@_@PREFIX@nWSR = QPOASES_NWSRMAX;

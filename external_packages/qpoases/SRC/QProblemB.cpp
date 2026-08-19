@@ -275,6 +275,12 @@ returnValue QProblemB::reset( )
 
 	status = QPS_NOTINITIALISED;
 
+	/* 4) Reset QP counter and global message handler, so that a re-used object
+	 *    behaves exactly like a freshly constructed one. \sa QProblemB. */
+	count = 0;
+
+	getGlobalMessageHandler( )->reset( );
+
 	return SUCCESSFUL_RETURN;
 }
 
