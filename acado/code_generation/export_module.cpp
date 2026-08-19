@@ -79,6 +79,9 @@ returnValue ExportModule::setupOptions( )
 	addOption( FIX_INITIAL_STATE,           true         	);
 	addOption( QP_SOLVER,                   QP_QPOASES      );
 	addOption( MAX_NUM_QP_ITERATIONS,       -1              );
+	addOption( BOUND_TOLERANCE,             1.0e-10         );
+	addOption( BOUND_RELAXATION,            1.0e3           );
+	addOption( INDEX_LIST_FACTOR,           5               );
 	addOption( HOTSTART_QP,                 true        	);
 	addOption( LEVENBERG_MARQUARDT,         0.0             );
 	addOption( GENERATE_TEST_FILE,          true         	);

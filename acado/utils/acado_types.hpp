@@ -423,7 +423,10 @@ enum OptionsName
 	GENERATE_SIMULINK_INTERFACE,
 	GENERATE_MATLAB_INTERFACE,
 	OPERATING_SYSTEM,
-	USE_SINGLE_PRECISION
+	USE_SINGLE_PRECISION,
+	BOUND_TOLERANCE,							/**< Lower/upper (constraints') bound tolerance of the exported qpOASES solver. */
+	BOUND_RELAXATION,							/**< Offset for relaxing (constraints') bounds at the beginning of an initial homotopy in the exported qpOASES solver. */
+	INDEX_LIST_FACTOR							/**< Factor that determines the physical lengths of the index lists in the exported qpOASES solver. */
 };
 
 

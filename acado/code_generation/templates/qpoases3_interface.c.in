@@ -25,6 +25,8 @@ int @MODULE_NAME@_@PREFIX@solve( void )
 
 	@CTOR@;
 	Options_setToMPC( &options );
+	options.boundTolerance = (real_t)QPOASES_BOUNDTOL;
+	options.boundRelaxation = (real_t)QPOASES_BOUNDRELAXATION;
 	@SOLVER_NAME@_setOptions( &qp,options );
 	
 	retVal = @SOLVER_NAME@_@CALL_SOLVER@

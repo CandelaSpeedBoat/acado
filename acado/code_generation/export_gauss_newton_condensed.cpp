@@ -2377,6 +2377,15 @@ returnValue ExportGaussNewtonCondensed::setupQPInterface( )
 	int maxNumQPiterations;
 	get(MAX_NUM_QP_ITERATIONS, maxNumQPiterations);
 
+	double boundTolerance;
+	get(BOUND_TOLERANCE, boundTolerance);
+
+	double boundRelaxation;
+	get(BOUND_RELAXATION, boundRelaxation);
+
+	int indexListFactor;
+	get(INDEX_LIST_FACTOR, indexListFactor);
+
 	int externalCholesky;
 	get(CG_CONDENSED_HESSIAN_CHOLESKY, externalCholesky);
 
@@ -2393,6 +2402,9 @@ returnValue ExportGaussNewtonCondensed::setupQPInterface( )
 			getNumQPvars(),
 			getNumStateBounds() + getNumComplexConstraints(),
 			maxNumQPiterations,
+			boundTolerance,
+			boundRelaxation,
+			indexListFactor,
 			"PL_NONE",
 			useSinglePrecision,
 

@@ -88,16 +88,16 @@ const real_t INFTY = (real_t) 1.0e12;
  *	whose lower and upper bound differ by less than BOUNDTOL is regarded
  *	to be an equality constraint).
  *	Note: this value has to be positive! */
-const real_t BOUNDTOL = (real_t) 1.0e-10;
+const real_t BOUNDTOL = (real_t) QPOASES_BOUNDTOL;
 
 /** Offset for relaxing (constraints') bounds at beginning of an initial homotopy.
  *	Note: this value has to be positive! */
-const real_t BOUNDRELAXATION = (real_t) 1.0e3;
+const real_t BOUNDRELAXATION = (real_t) QPOASES_BOUNDRELAXATION;
 
 
 /** Factor that determines physical lengths of index lists.
  *	Note: this value has to be greater than 1! */
-const int INDEXLISTFACTOR = 5;
+const int INDEXLISTFACTOR = QPOASES_INDEXLISTFACTOR;
 
 
 #endif	/* QPOASES_CONSTANTS_HPP */
