@@ -21,7 +21,8 @@
 # In order to comply with the above copyright, I am noting that I took
 # Daniel's script and hacked it a bit, mostly changing paths and filters
 
-find_package(PythonInterp)
+# FindPythonInterp was removed in CMake 4.0; FindPython is the replacement.
+find_package(Python COMPONENTS Interpreter QUIET)
 
 set(STYLE_FILTER)
 
@@ -56,7 +57,7 @@ set(STYLE_FILTER ${STYLE_FILTER}-runtime/printf,)
 # - SOURCES_LIST a complete list of source and include files to check
 function(add_style_check_target TARGET_NAME SOURCES_LIST)
 
-  if(NOT PYTHONINTERP_FOUND)
+  if(NOT Python_Interpreter_FOUND)
     return()
   endif()
 
@@ -66,7 +67,7 @@ function(add_style_check_target TARGET_NAME SOURCES_LIST)
   add_custom_target(${TARGET_NAME}
     COMMAND "${CMAKE_COMMAND}" -E chdir
             "${CMAKE_CURRENT_SOURCE_DIR}"
-            "${PYTHON_EXECUTABLE}"
+            "${Python_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/misc/cpplint.py"
             "--filter=${STYLE_FILTER}"
             "--counting=detailed"

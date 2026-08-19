@@ -38,11 +38,10 @@ MACRO( ACADO_GENERATE_COMPILE generator exportFolder testFile )
 			${CMAKE_CURRENT_SOURCE_DIR}/${exportFolder}/acado_auxiliary_functions.c
 		)
 		
-		# Get the full name of the executable getting_started
-		GET_TARGET_PROPERTY(
-			${generator}_EXE
-				${generator} LOCATION
-		)
+		# Get the full name of the generator executable. Reading the LOCATION
+		# target property was removed with policy CMP0026; the generator
+		# expression is the supported replacement.
+		SET( ${generator}_EXE $<TARGET_FILE:${generator}> )
 		
 		# Create a command that will generate the code for us
 		ADD_CUSTOM_COMMAND(

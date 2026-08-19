@@ -25,7 +25,7 @@
 #
 # Minimum required version of cmake 
 #
-CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )
+CMAKE_MINIMUM_REQUIRED( VERSION 3.5...3.31 )
 
 #
 # Project name and programming languages used
@@ -156,13 +156,10 @@ FIND_PACKAGE( Doxygen )
 #
 ################################################################################
 
-# Suppressing some stupid warnings from CMake 3.0
-IF (POLICY CMP0026)
-	CMAKE_POLICY(SET CMP0026 OLD)
-ENDIF( )
-IF (POLICY CMP0042)
-	CMAKE_POLICY(SET CMP0042 OLD)
-ENDIF( )
+# NOTE: CMP0026 (reading the LOCATION target property) and CMP0042
+# (MACOSX_RPATH) used to be forced to OLD here. CMake 4.0 removed the OLD
+# behaviour of both, so requesting it is a hard error. The only LOCATION read
+# in the tree lives in cmake/UseACADO.cmake and now uses $<TARGET_FILE:...>.
 
 #
 # Compiler options are in separate file
