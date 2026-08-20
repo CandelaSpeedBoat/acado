@@ -21,8 +21,12 @@ int @MODULE_NAME@_@PREFIX@solve( void )
 {
 	@MODULE_NAME@_@PREFIX@nWSR = QPOASES_NWSRMAX;
 
-	@CTOR@;
-	
+	/* The solver object is kept in static storage: it is several kilobytes large
+	 * and would otherwise be a stack frame of the calling task. reset() restores
+	 * it to the state of a freshly constructed object. */
+	myStatic @CTOR@;
+	qp.reset();
+
 	returnValue retVal = qp.init(@CALL_SOLVER@);
 
     qp.getPrimalSolution( @PRIMAL_SOLUTION@ );

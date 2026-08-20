@@ -214,7 +214,12 @@ returnValue QProblem::reset( )
 	/* 2) Reset constraints. */
 	constraints.init( nC );
 
-	/* 3) Reset TQ factorisation. */
+	/* 3) Reset TQ factorisation. Restore sizeT first, so that a re-used object
+	 *    ends up in exactly the state set by the constructor. */
+	sizeT = nC;
+	if ( nC > nV )
+		sizeT = nV;
+
 	for( i=0; i<sizeT; ++i )
 		for( j=0; j<sizeT; ++j )
 			T[i*NVMAX + j] = 0.0;

@@ -35,6 +35,13 @@
 #define QPOASES_TYPES_HPP
 
 
+/* Avoid using static variables declaration within functions. */
+#ifdef __NO_STATIC__
+  #define myStatic
+#else
+  #define myStatic static
+#endif /* __NO_STATIC__ */
+
 
 /** Define real_t for facilitating switching between double and float. */
 // typedef double real_t;
