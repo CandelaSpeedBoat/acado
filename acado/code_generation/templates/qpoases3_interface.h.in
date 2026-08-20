@@ -23,6 +23,8 @@
 #define QPOASES_NCMAX      @NCMAX@
 /** Maximum number of working set recalculations. */
 #define QPOASES_NWSRMAX    @NWSRMAX@
+/** Offset for relaxing (constraints') bounds at beginning of an initial homotopy */
+#define QPOASES_BOUNDRELAXATION @BOUNDRELAXATION@
 /** Print level for qpOASES. */
 #define QPOASES_PRINTLEVEL @PRINT_LEVEL@
 /** The value of EPS */

@@ -77,6 +77,9 @@ public:
 
 	/** Configure the template
 	 *
+	 *  \note indexListFactor is ignored: qpOASES 3 sizes its index lists
+	 *        dynamically and has no such compile-time constant.
+	 *
 	 *  \return SUCCESSFUL_RETURN
 	 */
 	virtual returnValue configure(	const std::string& _prefix,
@@ -84,6 +87,8 @@ public:
 									const int nvmax,
 									const int ncmax,
 									const int nwsrmax,
+									const double boundRelaxation,
+									const int indexListFactor,
 									const std::string& _printLevel,
 									bool _useSinglePrecision,
 

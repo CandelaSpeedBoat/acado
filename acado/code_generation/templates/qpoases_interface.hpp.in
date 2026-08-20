@@ -23,6 +23,12 @@
 #define QPOASES_NCMAX      @NCMAX@
 /** Maximum number of working set recalculations. */
 #define QPOASES_NWSRMAX    @NWSRMAX@
+/** Lower/upper (constraints') bound tolerance */
+#define QPOASES_BOUNDTOL            @BOUNDTOL@
+/** Offset for relaxing (constraints') bounds at beginning of an initial homotopy */
+#define QPOASES_BOUNDRELAXATION     @BOUNDRELAXATION@
+/** Factor that determines physical lengths of index lists */
+#define QPOASES_INDEXLISTFACTOR     @INDEXLISTFACTOR@
 /** Print level for qpOASES. */
 #define QPOASES_PRINTLEVEL @PRINT_LEVEL@
 /** The value of EPS */

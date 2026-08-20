@@ -140,7 +140,11 @@ returnValue Options_setToDefault(	Options* _THIS
 	_THIS->terminationTolerance          =  5.0e6 * QPOASES_EPS;
 	_THIS->boundTolerance                =  1.0e6 * QPOASES_EPS;
 	#endif
-	_THIS->boundRelaxation               =  1.0e4;
+	#ifdef __CODE_GENERATION__
+ 	_THIS->boundRelaxation               =  QPOASES_BOUNDRELAXATION;
+ 	#else
+ 	_THIS->boundRelaxation               =  1.0e4;
+ 	#endif
 	#ifdef __USE_SINGLE_PRECISION__
 	_THIS->epsNum                        = -1.0e2 * QPOASES_EPS;
 	_THIS->epsDen                        =  1.0e2 * QPOASES_EPS;

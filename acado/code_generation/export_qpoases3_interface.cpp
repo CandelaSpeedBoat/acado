@@ -57,6 +57,8 @@ returnValue ExportQpOases3Interface::configure(	const std::string& _prefix,
 												const int nvmax,
 												const int ncmax,
 												const int nwsrmax,
+												const double boundRelaxation,
+												const int /* indexListFactor */,
 												const std::string& _printLevel,
 												bool _useSinglePrecision,
 
@@ -173,6 +175,8 @@ returnValue ExportQpOases3Interface::configure(	const std::string& _prefix,
 	qpoHeader.dictionary[ "@NCMAX@" ] = toString( ncmax );
 
 	qpoHeader.dictionary[ "@NWSRMAX@" ] =  toString(nwsrmax > 0 ? nwsrmax : 3 * (nvmax + ncmax));
+
+	qpoHeader.dictionary[ "@BOUNDRELAXATION@" ] = toString( boundRelaxation );
 
 	qpoHeader.dictionary[ "@PRINT_LEVEL@" ] =  _printLevel;
 
