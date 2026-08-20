@@ -83,7 +83,6 @@ public:
 									const int nvmax,
 									const int ncmax,
 									const int nwsrmax,
-									const double boundTolerance,
 									const double boundRelaxation,
 									const int indexListFactor,
 									const std::string& _printLevel,

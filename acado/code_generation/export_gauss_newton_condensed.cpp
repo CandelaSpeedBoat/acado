@@ -2377,9 +2377,6 @@ returnValue ExportGaussNewtonCondensed::setupQPInterface( )
 	int maxNumQPiterations;
 	get(MAX_NUM_QP_ITERATIONS, maxNumQPiterations);
 
-	double boundTolerance;
-	get(BOUND_TOLERANCE, boundTolerance);
-
 	double boundRelaxation;
 	get(BOUND_RELAXATION, boundRelaxation);
 
@@ -2402,7 +2399,6 @@ returnValue ExportGaussNewtonCondensed::setupQPInterface( )
 			getNumQPvars(),
 			getNumStateBounds() + getNumComplexConstraints(),
 			maxNumQPiterations,
-			boundTolerance,
 			boundRelaxation,
 			indexListFactor,
 			"PL_NONE",

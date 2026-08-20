@@ -55,7 +55,6 @@ returnValue ExportQpOasesInterface::configure(	const std::string& _prefix,
 												const int nvmax,
 												const int ncmax,
 												const int nwsrmax,
-												const double boundTolerance,
 												const double boundRelaxation,
 												const int indexListFactor,
 												const std::string& _printLevel,
@@ -146,7 +145,6 @@ returnValue ExportQpOasesInterface::configure(	const std::string& _prefix,
 
 	qpoHeader.dictionary[ "@NWSRMAX@" ] =  toString(nwsrmax > 0 ? nwsrmax : 3 * (nvmax + ncmax));
 
-	qpoHeader.dictionary[ "@BOUNDTOL@" ] = toString( boundTolerance );
 	qpoHeader.dictionary[ "@BOUNDRELAXATION@" ] = toString( boundRelaxation );
 	qpoHeader.dictionary[ "@INDEXLISTFACTOR@" ] = toString( indexListFactor );
 
@@ -154,18 +152,22 @@ returnValue ExportQpOasesInterface::configure(	const std::string& _prefix,
 
 	double eps;
 	string realT;
+	double boundTolerance;
 	if ( _useSinglePrecision )
 	{
 		eps = 1.193e-07;
 		realT = "float";
+		boundTolerance = 1.0e-6;
 	}
 	else
 	{
 		eps = 2.221e-16;
 		realT = "double";
+		boundTolerance = 1.0e-10;
 	}
 	qpoHeader.dictionary[ "@EPS@" ] =  toString( eps );
 	qpoHeader.dictionary[ "@REAL_T@" ] =  toString( realT );
+	qpoHeader.dictionary[ "@BOUNDTOL@" ] = toString( boundTolerance );
 
 	// And then fill a template file
 	qpoHeader.fillTemplate();
