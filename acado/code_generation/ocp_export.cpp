@@ -781,8 +781,11 @@ returnValue OCPexport::exportAcadoHeader(	const std::string& _dirName,
 	uint NIS = integrationGrid.getNumIntervals();
 	if( ocp.hasEquidistantControlGrid() ) options[ modulePrefix + "_RK_NIS" ] = make_pair(toString( NIS ),   "Number of integration steps per shooting interval.");
 
-	RungeKuttaExport *rk_integrator = static_cast<RungeKuttaExport *>(integrator.get());  // Note: As long as only Runge-Kutta type methods are exported.
-	options[ modulePrefix + "_RK_NSTAGES" ] = make_pair(toString( rk_integrator->getNumStages() ),   "Number of Runge-Kutta stages per integration step.");
+	// Only Runge-Kutta integrators have stages. Casting any other integrator, e.g. the discrete-time one, would read
+	// past the object and export an arbitrary number that changes every time the code is generated.
+	RungeKuttaExport *rk_integrator = dynamic_cast<RungeKuttaExport *>(integrator.get());
+	if( rk_integrator != 0 )
+		options[ modulePrefix + "_RK_NSTAGES" ] = make_pair(toString( rk_integrator->getNumStages() ),   "Number of Runge-Kutta stages per integration step.");
 
 	options[ modulePrefix + "_INITIAL_STATE_FIXED" ] =
 			make_pair(toString( fixInitialState ), "Indicator for fixed initial state.");
