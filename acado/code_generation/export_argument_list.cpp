@@ -162,6 +162,10 @@ returnValue ExportArgumentList::exportCode(	std::ostream& stream,
 		started = true;
 	}
 
+	// An empty parameter list declares a function without a prototype in C, so spell it out as "void"
+	if ( includeType == true && started == false )
+		stream << "void";
+
 	return SUCCESSFUL_RETURN;
 }
 
