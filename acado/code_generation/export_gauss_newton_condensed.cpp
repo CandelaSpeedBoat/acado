@@ -34,9 +34,101 @@
 #include <acado/code_generation/export_qpoases3_interface.hpp>
 #include <acado/code_generation/export_module.hpp>
 
+#include <sstream>
+
 using namespace std;
 
 BEGIN_NAMESPACE_ACADO
+
+/** Statement that exports out = left * right, or out += left * right, for CG_EXPLOIT_SPARSITY.
+ *
+ *  The code skips the zero entries of left at runtime and sums each row of the result in registers. The other
+ *  terms are summed in the order of the dense product, so the results only differ by the dropped "0 * x" terms.
+ *  The code is written with the real and integer types the statement is exported with, like the dense product.
+ */
+class ExportSparseProduct : public ExportStatement
+{
+	public:
+
+		/** Constructor.
+		 *
+		 *	@param[in] _left			Left factor, rows x inner, or inner x rows if _leftTransposed.
+		 *	@param[in] _leftTransposed	Whether to use the transpose of the left factor.
+		 *	@param[in] _right			Right factor, inner x cols.
+		 *	@param[in] _out				Name of the result.
+		 *	@param[in] _outOffset		C expression of the offset of the result in _out, or empty for none.
+		 *	@param[in] _rows			Number of rows of the result.
+		 *	@param[in] _inner			Number of columns of the left and rows of the right factor.
+		 *	@param[in] _cols			Number of columns of the result.
+		 *	@param[in] _outStride		Distance between the rows of the result.
+		 *	@param[in] _accumulate		Whether to add the product to the result instead of assigning it.
+		 */
+		ExportSparseProduct(	const ExportVariable& _left, bool _leftTransposed, const ExportVariable& _right,
+								const std::string& _out, const std::string& _outOffset, unsigned _rows,
+								unsigned _inner, unsigned _cols, unsigned _outStride, bool _accumulate )
+			: left( _left.getFullName() ), leftTransposed( _leftTransposed ), right( _right.getFullName() ),
+			  out( _out ), outOffset( _outOffset ), rows( _rows ), inner( _inner ), cols( _cols ),
+			  outStride( _outStride ), accumulate( _accumulate )
+		{}
+
+		virtual ExportStatement* clone( ) const
+		{
+			return new ExportSparseProduct( *this );
+		}
+
+		virtual returnValue exportCode(	std::ostream& stream,
+										const std::string& _realString = "real_t",
+										const std::string& _intString = "int",
+										int _precision = 16
+										) const
+		{
+			(void)_precision;
+
+			// An empty result needs no code. Zero-sized factors are not even arguments of the exported function.
+			if ( rows == 0 || cols == 0 )
+				return SUCCESSFUL_RETURN;
+
+			const std::string zero = std::string( "(" ) + _realString + ")0";
+			const std::string outElement = outOffset.empty() ? out + "[" : out + "[" + outOffset + " + ";
+			stream << "{\n";
+			stream << _intString << " lRow, lCol, lInner;\n";
+			stream << "for (lRow = 0; lRow < " << rows << "; ++lRow) {\n";
+			stream << _realString << " lAcc[" << cols << "];\n";
+			stream << "for (lCol = 0; lCol < " << cols << "; ++lCol) lAcc[lCol] = " << zero << ";\n";
+			if ( inner > 0 )
+			{
+				stream << "for (lInner = 0; lInner < " << inner << "; ++lInner) {\n";
+				if ( leftTransposed )
+					stream << "const " << _realString << " lLeft = " << left << "[lInner * " << rows << " + lRow];\n";
+				else
+					stream << "const " << _realString << " lLeft = " << left << "[lRow * " << inner << " + lInner];\n";
+				stream << "if (lLeft != " << zero << ") {\n";
+				stream << "#pragma GCC unroll " << cols << "\n";
+				stream << "for (lCol = 0; lCol < " << cols << "; ++lCol) lAcc[lCol] += lLeft * " << right
+						<< "[lInner * " << cols << " + lCol];\n";
+				stream << "}\n";
+				stream << "}\n";
+			}
+			stream << "for (lCol = 0; lCol < " << cols << "; ++lCol) " << outElement << "lRow * " << outStride
+					<< " + lCol] " << (accumulate ? "+=" : "=") << " lAcc[lCol];\n";
+			stream << "}\n";
+			stream << "}\n";
+			return SUCCESSFUL_RETURN;
+		}
+
+	private:
+
+		std::string left;
+		bool leftTransposed;
+		std::string right;
+		std::string out;
+		std::string outOffset;
+		unsigned rows;
+		unsigned inner;
+		unsigned cols;
+		unsigned outStride;
+		bool accumulate;
+};
 
 ExportGaussNewtonCondensed::ExportGaussNewtonCondensed(	UserInteraction* _userInteraction,
 														const std::string& _commonHeaderName
@@ -2130,12 +2222,22 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 	// moveGxT
 	moveGxT.setup("moveGxT", Gx1, Gx2);
 	moveGxT.addStatement( Gx2 == Gx1 );
+
+	int exploitSparsity;
+	get( CG_EXPLOIT_SPARSITY, exploitSparsity );
+
 	// multGxGx
 	multGxGx.setup("multGxGx", Gx1, Gx2, Gx3);
-	multGxGx.addStatement( Gx3 == Gx1 * Gx2 );
+	if ( exploitSparsity )
+		multGxGx.addStatement( ExportSparseProduct(Gx1, false, Gx2, Gx3.getFullName(), "", NX, NX, NX, NX, false) );
+	else
+		multGxGx.addStatement( Gx3 == Gx1 * Gx2 );
 	// multGxGu
 	multGxGu.setup("multGxGu", Gx1, Gu1, Gu2);
-	multGxGu.addStatement( Gu2 == Gx1 * Gu1 );
+	if ( exploitSparsity )
+		multGxGu.addStatement( ExportSparseProduct(Gx1, false, Gu1, Gu2.getFullName(), "", NX, NX, NU, NU, false) );
+	else
+		multGxGu.addStatement( Gu2 == Gx1 * Gu1 );
 	// moveGuE
 	moveGuE.setup("moveGuE", Gu1, Gu2);
 	moveGuE.addStatement( Gu2 == Gu1 );
@@ -2144,7 +2246,16 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 
 	// setBlockH11
 	setBlockH11.setup("setBlockH11", iRow, iCol, Gu1, Gu2);
-	setBlockH11.addStatement( H.getSubMatrix(offset + iRow * NU, offset + (iRow + 1) * NU, offset + iCol * NU, offset + (iCol + 1) * NU) += (Gu1 ^ Gu2) );
+	if ( exploitSparsity )
+	{
+		std::stringstream h11;
+		h11 << "(" << offset << " + " << iRow.getFullName() << " * " << NU << ") * " << H.getNumCols() << " + "
+				<< offset << " + " << iCol.getFullName() << " * " << NU;
+		setBlockH11.addStatement( ExportSparseProduct(Gu1, true, Gu2, H.getFullName(), h11.str(), NU, NX, NU,
+				H.getNumCols(), true) );
+	}
+	else
+		setBlockH11.addStatement( H.getSubMatrix(offset + iRow * NU, offset + (iRow + 1) * NU, offset + iCol * NU, offset + (iCol + 1) * NU) += (Gu1 ^ Gu2) );
 	// setBlockH11_R1
 	DMatrix mRegH11 = eye<double>( getNU() );
 	mRegH11 *= levenbergMarquardt;
@@ -2171,7 +2282,10 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 	multEQDy.addStatement( U1 += (E1 ^ QDy1) );
 	// multQETGx
 	multQETGx.setup("multQETGx", E1, Gx1, H101);
-	multQETGx.addStatement( H101 += (E1 ^ Gx1) );
+	if ( exploitSparsity )
+		multQETGx.addStatement( ExportSparseProduct(E1, true, Gx1, H101.getFullName(), "", NU, NX, NX, NX, true) );
+	else
+		multQETGx.addStatement( H101 += (E1 ^ Gx1) );
 	// zerBlockH10
 	zeroBlockH10.setup("zeroBlockH10", H101);
 	zeroBlockH10.addStatement( H101 == zeros<double>(NU, NX) );

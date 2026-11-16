@@ -98,6 +98,7 @@ returnValue ExportModule::setupOptions( )
 	addOption( CG_USE_OPENMP,					 NO         );
 	addOption( CG_HARDCODE_CONSTRAINT_VALUES,    YES        );
 	addOption( CG_USE_ARRIVAL_COST,              NO         );
+	addOption( CG_EXPLOIT_SPARSITY,              NO         );
 
 	addOption( CG_CONDENSED_HESSIAN_CHOLESKY,    EXTERNAL   );
 	addOption( CG_FORCE_DIAGONAL_HESSIAN,        NO         );

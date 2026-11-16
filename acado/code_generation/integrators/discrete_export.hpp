@@ -201,6 +201,22 @@ class DiscreteTimeExport : public IntegratorExport
 		ExportVariable getAuxVariable() const;
 
 
+		/** Exports the code needed to propagate the sensitivities of the states defined by the nonlinear system.
+		 *
+		 *	With CG_EXPLOIT_SPARSITY, the terms with a structurally zero entry of the Jacobian of the right-hand side
+		 *	are left out, and every sensitivity is summed in one statement, in the order of the dense propagation.
+		 *
+		 *	@param[in] block			The block to which the code will be exported.
+		 *
+		 *	\return SUCCESSFUL_RETURN
+		 */
+		virtual returnValue propagateImplicitSystem( 	ExportStatementBlock* block,
+														const ExportIndex& index1,
+														const ExportIndex& index2,
+														const ExportIndex& _index3,
+														const ExportIndex& tmp_index  	);
+
+
 		/** Copies all class members from given object.
 		 *
 		 *	@param[in] arg		Right-hand side object.
@@ -214,6 +230,10 @@ class DiscreteTimeExport : public IntegratorExport
     protected:
 
 		ExportVariable  rk_diffsTemp3;
+
+		/** For each entry of the Jacobian of the right-hand side (row-major, states then controls), whether it is
+		 *  structurally zero. Empty if the model is given as external functions. */
+		std::vector<bool> diffsIsZero;
 
 };
 
