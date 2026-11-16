@@ -86,10 +86,22 @@ returnValue DiscreteTimeExport::setDifferentialEquation(	const Expression& rhs_ 
 		f << rhs_;
 
 		DifferentialEquation g;
+		diffsIsZero.clear();
 		for( uint i = 0; i < rhs_.getDim(); i++ ) {
-			g << forwardDerivative( rhs_(i), x );
-			g << forwardDerivative( rhs_(i), u );
+			Expression dfdx = forwardDerivative( rhs_(i), x );
+			Expression dfdu = forwardDerivative( rhs_(i), u );
+			g << dfdx;
+			g << dfdu;
 			// There are not supposed to be algebraic states or differential state derivatives !
+
+			// Remember the structural zeros of the Jacobian for CG_EXPLOIT_SPARSITY. The elements are cloned, as the
+			// non-const Expression::operator() resets an element to be assigned.
+			for( uint j = 0; j < dfdx.getDim() + dfdu.getDim(); j++ ) {
+				Operator* element = (j < dfdx.getDim()) ? dfdx.getOperatorClone( j )
+														: dfdu.getOperatorClone( j - dfdx.getDim() );
+				diffsIsZero.push_back( element->isOneOrZero() == NE_ZERO );
+				delete element;
+			}
 		}
 
 		return (rhs.init(f, "rhs", NX, NXA, NU, NP, NDX, NOD) &
@@ -493,11 +505,59 @@ ExportVariable DiscreteTimeExport::getAuxVariable() const
 }
 
 
+returnValue DiscreteTimeExport::propagateImplicitSystem(	ExportStatementBlock* block, const ExportIndex& index1,
+															const ExportIndex& index2, const ExportIndex& _index3,
+															const ExportIndex& tmp_index )
+{
+	int exploitSparsity;
+	get( CG_EXPLOIT_SPARSITY, exploitSparsity );
+	const uint nCols = NX1+NX2+NU;
+	if( !exploitSparsity || NX1 > 0 || NX2 == 0 || diffsIsZero.size() != NX2*nCols ) {
+		return IntegratorExport::propagateImplicitSystem( block, index1, index2, _index3, tmp_index );
+	}
+
+	// rk_eta = rk_diffsNew2 * rk_diffsPrev2, plus rk_diffsNew2's control columns for the control sensitivities. Every
+	// entry is one sum, without the terms of the structurally zero entries of rk_diffsNew2. The other terms are
+	// summed in the order of the dense propagation, so the results only differ by the dropped "0 * x" terms.
+	const std::string eta = rk_eta.getFullName();
+	const std::string jac = rk_diffsNew2.getFullName();
+	const std::string prev = rk_diffsPrev2.getFullName();
+	for( uint i = 0; i < NX2; i++ ) {
+		for( uint j = 0; j < NX2+NU; j++ ) {
+			const bool isControl = j >= NX2;
+			const uint etaIndex = isControl ? (NX+NXA)*(1+NX) + i*NU + (j-NX2) : NX+NXA + i*NX + j;
+			std::stringstream s;
+			s << eta << "[" << etaIndex << "] =";
+			bool isEmpty = true;
+			if( isControl ) {
+				s << " " << jac << "[" << i*nCols + j << "]";
+				isEmpty = false;
+			}
+			for( uint k = 0; k < NX2; k++ ) {
+				if( diffsIsZero[i*nCols + k] ) {
+					continue;
+				}
+				s << " + " << jac << "[" << i*nCols + k << "]*" << prev << "[" << k*nCols + j << "]";
+				isEmpty = false;
+			}
+			if( isEmpty ) {
+				s << " (real_t)0";
+			}
+			s << ";\n";
+			block->addStatement( s.str() );
+		}
+	}
+
+	return SUCCESSFUL_RETURN;
+}
+
+
 returnValue DiscreteTimeExport::copy(	const DiscreteTimeExport& arg
 									)
 {
 	rhs = arg.rhs;
 	diffs_rhs = arg.diffs_rhs;
+	diffsIsZero = arg.diffsIsZero;
 
 	// ExportVariables
 	rk_ttt = arg.rk_ttt;

@@ -34,9 +34,55 @@
 #include <acado/code_generation/export_qpoases3_interface.hpp>
 #include <acado/code_generation/export_module.hpp>
 
+#include <sstream>
+
 using namespace std;
 
 BEGIN_NAMESPACE_ACADO
+
+/** Returns the C code of out = left * right, or out += left * right if accumulate, for CG_EXPLOIT_SPARSITY.
+ *
+ *  The code skips the zero entries of left at runtime and sums each row of the result in registers. The other
+ *  terms are summed in the order of the dense product, so the results only differ by the dropped "0 * x" terms.
+ *
+ *	@param[in] left				Left factor, rows x inner, or inner x rows if leftTransposed.
+ *	@param[in] leftTransposed	Whether to use the transpose of left.
+ *	@param[in] right			Right factor, inner x cols.
+ *	@param[in] out				Result, unless outAddress is given.
+ *	@param[in] outAddress		C expression of the address of the result, which is used if not empty.
+ *	@param[in] outStride		Distance between the rows of the result.
+ */
+static std::string sparseProductCode(	const ExportVariable& left, bool leftTransposed, const ExportVariable& right,
+										const ExportVariable& out, const std::string& outAddress,
+										unsigned rows, unsigned inner, unsigned cols, unsigned outStride,
+										bool accumulate )
+{
+	std::stringstream s;
+	const std::string outName = outAddress.empty() ? out.getFullName() : std::string("lOut");
+	s << "{\n";
+	s << "int lRow, lCol, lInner;\n";
+	if ( !outAddress.empty() )
+		s << "real_t* const lOut = " << outAddress << ";\n";
+	s << "for (lRow = 0; lRow < " << rows << "; ++lRow) {\n";
+	s << "real_t lAcc[" << cols << "];\n";
+	s << "for (lCol = 0; lCol < " << cols << "; ++lCol) lAcc[lCol] = (real_t)0;\n";
+	s << "for (lInner = 0; lInner < " << inner << "; ++lInner) {\n";
+	if ( leftTransposed )
+		s << "const real_t lLeft = " << left.getFullName() << "[lInner * " << rows << " + lRow];\n";
+	else
+		s << "const real_t lLeft = " << left.getFullName() << "[lRow * " << inner << " + lInner];\n";
+	s << "if (lLeft != (real_t)0) {\n";
+	s << "#pragma GCC unroll " << cols << "\n";
+	s << "for (lCol = 0; lCol < " << cols << "; ++lCol) lAcc[lCol] += lLeft * " << right.getFullName()
+			<< "[lInner * " << cols << " + lCol];\n";
+	s << "}\n";
+	s << "}\n";
+	s << "for (lCol = 0; lCol < " << cols << "; ++lCol) " << outName << "[lRow * " << outStride << " + lCol] "
+			<< (accumulate ? "+=" : "=") << " lAcc[lCol];\n";
+	s << "}\n";
+	s << "}\n";
+	return s.str();
+}
 
 ExportGaussNewtonCondensed::ExportGaussNewtonCondensed(	UserInteraction* _userInteraction,
 														const std::string& _commonHeaderName
@@ -2130,12 +2176,22 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 	// moveGxT
 	moveGxT.setup("moveGxT", Gx1, Gx2);
 	moveGxT.addStatement( Gx2 == Gx1 );
+
+	int exploitSparsity;
+	get( CG_EXPLOIT_SPARSITY, exploitSparsity );
+
 	// multGxGx
 	multGxGx.setup("multGxGx", Gx1, Gx2, Gx3);
-	multGxGx.addStatement( Gx3 == Gx1 * Gx2 );
+	if ( exploitSparsity )
+		multGxGx.addStatement( sparseProductCode(Gx1, false, Gx2, Gx3, "", NX, NX, NX, NX, false) );
+	else
+		multGxGx.addStatement( Gx3 == Gx1 * Gx2 );
 	// multGxGu
 	multGxGu.setup("multGxGu", Gx1, Gu1, Gu2);
-	multGxGu.addStatement( Gu2 == Gx1 * Gu1 );
+	if ( exploitSparsity )
+		multGxGu.addStatement( sparseProductCode(Gx1, false, Gu1, Gu2, "", NX, NX, NU, NU, false) );
+	else
+		multGxGu.addStatement( Gu2 == Gx1 * Gu1 );
 	// moveGuE
 	moveGuE.setup("moveGuE", Gu1, Gu2);
 	moveGuE.addStatement( Gu2 == Gu1 );
@@ -2144,7 +2200,16 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 
 	// setBlockH11
 	setBlockH11.setup("setBlockH11", iRow, iCol, Gu1, Gu2);
-	setBlockH11.addStatement( H.getSubMatrix(offset + iRow * NU, offset + (iRow + 1) * NU, offset + iCol * NU, offset + (iCol + 1) * NU) += (Gu1 ^ Gu2) );
+	if ( exploitSparsity )
+	{
+		std::stringstream h11;
+		h11 << "&" << H.getFullName() << "[(" << offset << " + " << iRow.getFullName() << " * " << NU << ") * "
+				<< H.getNumCols() << " + " << offset << " + " << iCol.getFullName() << " * " << NU << "]";
+		setBlockH11.addStatement( sparseProductCode(Gu1, true, Gu2, ExportVariable(), h11.str(), NU, NX, NU,
+				H.getNumCols(), true) );
+	}
+	else
+		setBlockH11.addStatement( H.getSubMatrix(offset + iRow * NU, offset + (iRow + 1) * NU, offset + iCol * NU, offset + (iCol + 1) * NU) += (Gu1 ^ Gu2) );
 	// setBlockH11_R1
 	DMatrix mRegH11 = eye<double>( getNU() );
 	mRegH11 *= levenbergMarquardt;
@@ -2171,7 +2236,10 @@ returnValue ExportGaussNewtonCondensed::setupMultiplicationRoutines( )
 	multEQDy.addStatement( U1 += (E1 ^ QDy1) );
 	// multQETGx
 	multQETGx.setup("multQETGx", E1, Gx1, H101);
-	multQETGx.addStatement( H101 += (E1 ^ Gx1) );
+	if ( exploitSparsity )
+		multQETGx.addStatement( sparseProductCode(E1, true, Gx1, H101, "", NU, NX, NX, NX, true) );
+	else
+		multQETGx.addStatement( H101 += (E1 ^ Gx1) );
 	// zerBlockH10
 	zeroBlockH10.setup("zeroBlockH10", H101);
 	zeroBlockH10.addStatement( H101 == zeros<double>(NU, NX) );
