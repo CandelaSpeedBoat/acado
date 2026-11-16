@@ -541,7 +541,7 @@ returnValue DiscreteTimeExport::propagateImplicitSystem(	ExportStatementBlock* b
 				isEmpty = false;
 			}
 			if( isEmpty ) {
-				s << " (real_t)0";
+				s << " 0.0";
 			}
 			s << ";\n";
 			block->addStatement( s.str() );
