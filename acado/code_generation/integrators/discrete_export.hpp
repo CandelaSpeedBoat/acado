@@ -201,6 +201,14 @@ class DiscreteTimeExport : public IntegratorExport
 		ExportVariable getAuxVariable() const;
 
 
+		/** Returns whether the right-hand side and its derivatives are evaluated in one function, which needs
+		 *  CG_MERGE_RHS_AND_DIFFS and a model with only nonlinear states given as an expression.
+		 *
+		 *	\return true if rhs_diffs is used instead of rhs and diffs_rhs
+		 */
+		bool mergesRhsAndDiffs() const;
+
+
 		/** Exports the code needed to propagate the sensitivities of the states defined by the nonlinear system.
 		 *
 		 *	With CG_EXPLOIT_SPARSITY, the terms with a structurally zero entry of the Jacobian of the right-hand side
@@ -234,6 +242,10 @@ class DiscreteTimeExport : public IntegratorExport
 		/** For each entry of the Jacobian of the right-hand side (row-major, states then controls), whether it is
 		 *  structurally zero. Empty if the model is given as external functions. */
 		std::vector<bool> diffsIsZero;
+
+		/** Evaluates the derivatives of the right-hand side, as diffs_rhs, followed by the right-hand side, for
+		 *  CG_MERGE_RHS_AND_DIFFS. */
+		ExportAcadoFunction rhs_diffs;
 
 };
 

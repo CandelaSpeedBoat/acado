@@ -426,7 +426,8 @@ enum OptionsName
 	USE_SINGLE_PRECISION,
 	BOUND_RELAXATION,							/**< Offset for relaxing (constraints') bounds at the beginning of an initial homotopy in the exported qpOASES solver. */
 	INDEX_LIST_FACTOR,							/**< Factor that determines the physical lengths of the index lists in the exported qpOASES solver. */
-	CG_EXPLOIT_SPARSITY							/**< Skip the zero entries in the sensitivity propagation of the discrete-time integrator and in the condensing products. */
+	CG_EXPLOIT_SPARSITY,						/**< Skip the zero entries in the sensitivity propagation of the discrete-time integrator and in the condensing products. */
+	CG_MERGE_RHS_AND_DIFFS						/**< Evaluate the right-hand side and its derivatives in one function in the discrete-time integrator, so they share their intermediate quantities. */
 };
 
 

@@ -86,12 +86,16 @@ returnValue DiscreteTimeExport::setDifferentialEquation(	const Expression& rhs_ 
 		f << rhs_;
 
 		DifferentialEquation g;
+		// For CG_MERGE_RHS_AND_DIFFS, the derivatives followed by the right-hand side
+		DifferentialEquation h;
 		diffsIsZero.clear();
 		for( uint i = 0; i < rhs_.getDim(); i++ ) {
 			Expression dfdx = forwardDerivative( rhs_(i), x );
 			Expression dfdu = forwardDerivative( rhs_(i), u );
 			g << dfdx;
 			g << dfdu;
+			h << dfdx;
+			h << dfdu;
 			// There are not supposed to be algebraic states or differential state derivatives !
 
 			// Remember the structural zeros of the Jacobian for CG_EXPLOIT_SPARSITY. The elements are cloned, as the
@@ -103,9 +107,11 @@ returnValue DiscreteTimeExport::setDifferentialEquation(	const Expression& rhs_ 
 				delete element;
 			}
 		}
+		h << rhs_;
 
 		return (rhs.init(f, "rhs", NX, NXA, NU, NP, NDX, NOD) &
-				diffs_rhs.init(g, "diffs", NX, NXA, NU, NP, NDX, NOD));
+				diffs_rhs.init(g, "diffs", NX, NXA, NU, NP, NDX, NOD) &
+				rhs_diffs.init(h, "rhs_diffs", NX, NXA, NU, NP, NDX, NOD));
 	}
 	return SUCCESSFUL_RETURN;
 }
@@ -198,7 +204,8 @@ returnValue DiscreteTimeExport::setup( )
 		rk_diffsPrev3 = ExportVariable( "rk_diffsPrev3", NX3, NX+NU, REAL, structWspace );
 	}
 	rk_diffsNew1 = ExportVariable( "rk_diffsNew1", NX1, NX1+NU, REAL, structWspace );
-	rk_diffsNew2 = ExportVariable( "rk_diffsNew2", NX2, NX1+NX2+NU, REAL, structWspace );
+	// With CG_MERGE_RHS_AND_DIFFS, the right-hand side follows the derivatives in an extra row
+	rk_diffsNew2 = ExportVariable( "rk_diffsNew2", mergesRhsAndDiffs() ? NX2+1 : NX2, NX1+NX2+NU, REAL, structWspace );
 	rk_diffsNew3 = ExportVariable( "rk_diffsNew3", NX3, NX+NU, REAL, structWspace );
 	rk_diffsTemp3 = ExportVariable( "rk_diffsTemp3", NX3, NX1+NX2+NU, REAL, structWspace );
 
@@ -272,7 +279,11 @@ returnValue DiscreteTimeExport::setup( )
 	if( NX1 > 0 ) {
 		loop->addFunctionCall( lin_input.getName(), rk_xxx, rk_eta.getAddress(0,0) );
 	}
-	if( NX2 > 0 ) {
+	if( mergesRhsAndDiffs() ) {
+		loop->addFunctionCall( rhs_diffs.getName(), rk_xxx, rk_diffsNew2.getAddress(0,0) );
+		loop->addStatement( rk_eta.getCols( 0,NX ) == rk_diffsNew2.getSubMatrix( NX2,NX2+1,0,NX ) );
+	}
+	else if( NX2 > 0 ) {
 		loop->addFunctionCall( getNameRHS(), rk_xxx, rk_eta.getAddress(0,NX1) );
 	}
 	if( NX3 > 0 ) {
@@ -280,7 +291,7 @@ returnValue DiscreteTimeExport::setup( )
 	}
 
 	// evaluate sensitivities
-	if( NX2 > 0 ) {
+	if( NX2 > 0 && !mergesRhsAndDiffs() ) {
 		loop->addFunctionCall( getNameDiffsRHS(), rk_xxx, rk_diffsNew2.getAddress(0,0) );
 	}
 	if( NX3 > 0 ) {
@@ -358,6 +369,7 @@ returnValue DiscreteTimeExport::getCode(	ExportStatementBlock& code
 		if( NX2 > 0 ) {
 			rhs.setGlobalExportVariable( max );
 			diffs_rhs.setGlobalExportVariable( max );
+			rhs_diffs.setGlobalExportVariable( max );
 		}
 		if( NX3 > 0 ) {
 			rhs3.setGlobalExportVariable( max );
@@ -395,7 +407,7 @@ returnValue DiscreteTimeExport::getCode(	ExportStatementBlock& code
 	if( NX2 > 0 ) {
 		code.addFunction( rhs );
 		code.addStatement( "\n\n" );
-		code.addFunction( diffs_rhs );
+		code.addFunction( mergesRhsAndDiffs() ? rhs_diffs : diffs_rhs );
 		code.addStatement( "\n\n" );
 	}
 
@@ -491,6 +503,9 @@ ExportVariable DiscreteTimeExport::getAuxVariable() const
 		if( diffs_rhs.getGlobalExportVariable().getDim() >= max.getDim() ) {
 			max = diffs_rhs.getGlobalExportVariable();
 		}
+		if( mergesRhsAndDiffs() && rhs_diffs.getGlobalExportVariable().getDim() >= max.getDim() ) {
+			max = rhs_diffs.getGlobalExportVariable();
+		}
 	}
 	if( NX3 > 0 ) {
 		if( rhs3.getGlobalExportVariable().getDim() >= max.getDim() ) {
@@ -502,6 +517,15 @@ ExportVariable DiscreteTimeExport::getAuxVariable() const
 	}
 
 	return max;
+}
+
+
+bool DiscreteTimeExport::mergesRhsAndDiffs() const
+{
+	int mergeRhsAndDiffs;
+	get( CG_MERGE_RHS_AND_DIFFS, mergeRhsAndDiffs );
+	// The right-hand side is copied from the extra row of rk_diffsNew2, which only holds it without other states
+	return mergeRhsAndDiffs && NX1 == 0 && NX3 == 0 && NXA == 0 && NX2 > 0 && !diffsIsZero.empty();
 }
 
 
@@ -558,6 +582,7 @@ returnValue DiscreteTimeExport::copy(	const DiscreteTimeExport& arg
 	rhs = arg.rhs;
 	diffs_rhs = arg.diffs_rhs;
 	diffsIsZero = arg.diffsIsZero;
+	rhs_diffs = arg.rhs_diffs;
 
 	// ExportVariables
 	rk_ttt = arg.rk_ttt;
